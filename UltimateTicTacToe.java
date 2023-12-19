@@ -77,12 +77,12 @@ class Board extends JPanel {
     public boolean checkWin() {
         for (int i = 0; i < 3; i++) {
             if (checkRowCol(boards[i][0], boards[i][1], boards[i][2]) || // check rows
-                checkRowCol(boards[0][i], boards[1][i], boards[2][i])) { // check columns
+                    checkRowCol(boards[0][i], boards[1][i], boards[2][i])) { // check columns
                 return true;
             }
         }
         return checkRowCol(boards[0][0], boards[1][1], boards[2][2]) || // check diagonal
-               checkRowCol(boards[0][2], boards[1][1], boards[2][0]);    // check reverse diagonal
+                checkRowCol(boards[0][2], boards[1][1], boards[2][0]); // check reverse diagonal
     }
 
     private boolean checkRowCol(SmallBoard a, SmallBoard b, SmallBoard c) {
@@ -132,13 +132,13 @@ class SmallBoard extends JPanel {
     public boolean checkWin() {
         for (int i = 0; i < 3; i++) {
             if (checkRowCol(cells[i][0], cells[i][1], cells[i][2]) || // check rows
-                checkRowCol(cells[0][i], cells[1][i], cells[2][i])) { // check columns
+                    checkRowCol(cells[0][i], cells[1][i], cells[2][i])) { // check columns
                 winner = gameController.getCurrentPlayer();
                 return true;
             }
         }
         if (checkRowCol(cells[0][0], cells[1][1], cells[2][2]) || // check diagonal
-            checkRowCol(cells[0][2], cells[1][1], cells[2][0])) {   // check reverse diagonal
+                checkRowCol(cells[0][2], cells[1][1], cells[2][0])) { // check reverse diagonal
             winner = gameController.getCurrentPlayer();
             return true;
         }
@@ -188,19 +188,8 @@ class Cell extends JButton {
         addActionListener(e -> {
             if (isEmpty()) {
                 setSymbol(gameController.getCurrentPlayer()); // Set symbol based on the current player
-                if (smallBoard.checkWin() || smallBoard.isFull()) {
-                    smallBoard.setEnabled(false);
-                    // Check if the entire game is won or if it's a draw
-                    if (gameController.getBoard().checkWin()) {
-                        gameController.getStatusLabel().setText("Player " + gameController.getCurrentPlayer() + " wins!");
-                        gameController.getBoard().setEnabled(false);
-                    } else if (gameController.getBoard().isFull()) {
-                        gameController.getStatusLabel().setText("Draw!");
-                        gameController.getBoard().setEnabled(false);
-                    } else {
-                        gameController.switchPlayer();
-                    }
-                }
+                gameController.cellClicked(this); // Delegate to GameController to handle the action
+                gameController.switchPlayer(); // Switch player after every valid move
             }
         });
     }
@@ -212,6 +201,24 @@ class Cell extends JButton {
     public void setSymbol(char symbol) {
         this.symbol = symbol;
         setText(String.valueOf(symbol));
+        // Check if the small board or the entire board is won or full after setting the
+        // symbol
+        checkBoardStates();
+    }
+
+    private void checkBoardStates() {
+        if (smallBoard.checkWin() || smallBoard.isFull()) {
+            smallBoard.setEnabled(false);
+            // Check if the entire game is won or if it's a draw
+            if (gameController.getBoard().checkWin()) {
+                gameController.getStatusLabel()
+                        .setText("Player " + (gameController.getCurrentPlayer() == 'X' ? 'O' : 'X') + " wins!");
+                gameController.getBoard().setEnabled(false);
+            } else if (gameController.getBoard().isFull()) {
+                gameController.getStatusLabel().setText("Draw!");
+                gameController.getBoard().setEnabled(false);
+            }
+        }
     }
 
     public char getSymbol() {

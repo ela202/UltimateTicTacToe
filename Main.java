@@ -127,15 +127,19 @@ class Game {
 
             if (ultimateBoard.isFinished()) {
                 gui.displayWinner(currentPlayer);
+                gui.disableAllButtons();
+                return true;
             }
-            return true;
+
+            switchPlayer();
+            gui.updateBoardState(lastRow, lastCol);
         }
         return false;
     }
 
     private boolean isValidMove(int row, int col) {
-        if (lastRow != -1 && (row / 3 != lastRow || col / 3 != lastCol)
-                && !ultimateBoard.getBoard(lastRow, lastCol).isFinished()) {
+        if (lastRow != -1 && (row / 3 != lastRow || col / 3 != lastCol) 
+            && !ultimateBoard.getBoard(lastRow, lastCol).isFinished()) {
             return false;
         }
         return true;
@@ -151,7 +155,7 @@ class Game {
     }
 }
 
-// GUI for the Ultimate Tic Tac Toe game
+// GUI class with highlighted playable board
 class UltimateTicTacToeGUI {
     private JFrame frame;
     private JButton[][] buttons;
@@ -168,7 +172,7 @@ class UltimateTicTacToeGUI {
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setLayout(new BorderLayout());
 
-        JPanel gridPanel = new JPanel(new GridLayout(3, 3, 5, 5)); // 3x3 grid for the game
+        JPanel gridPanel = new JPanel(new GridLayout(3, 3, 5, 5));
         frame.add(gridPanel, BorderLayout.CENTER);
 
         statusLabel = new JLabel("Player X's turn", SwingConstants.CENTER);
@@ -201,54 +205,53 @@ class UltimateTicTacToeGUI {
                 subPanel.add(button);
             }
         }
-        highlightAvailableSquares();
+        updateBoardState(-1, -1); // Initially allow play in any square
     }
 
     private void buttonClicked(int row, int col) {
         if (game.makeMove(row, col)) {
             buttons[row][col].setText(String.valueOf(game.getCurrentPlayer()));
-            updateBoardState();
-            game.switchPlayer();
+            updateBoardState(game.lastRow, game.lastCol);
         }
     }
 
-    private void updateBoardState() {
+    public void updateBoardState(int lastRow, int lastCol) {
+        clearHighlights();
+
         for (int i = 0; i < 9; i++) {
             for (int j = 0; j < 9; j++) {
                 int boardRow = i / 3;
                 int boardCol = j / 3;
+
                 if (game.ultimateBoard.getBoard(boardRow, boardCol).isFinished()) {
                     buttons[i][j].setEnabled(false);
                     buttons[i][j].setBackground(Color.GRAY);
                 } else {
-                    buttons[i][j].setBackground(null);
                     buttons[i][j].setEnabled(true);
+                    buttons[i][j].setBackground(null);
+
+                    if (lastRow == -1 || lastCol == -1 || 
+                        game.ultimateBoard.getBoard(lastRow, lastCol).isFinished() ||
+                        (boardRow == lastRow && boardCol == lastCol)) {
+                        buttons[i][j].setBackground(Color.YELLOW);
+                    }
                 }
             }
         }
-        highlightAvailableSquares();
     }
 
-    private void highlightAvailableSquares() {
-        boolean anySquareAvailable = false;
+    private void clearHighlights() {
         for (int i = 0; i < 9; i++) {
             for (int j = 0; j < 9; j++) {
-                int boardRow = i / 3;
-                int boardCol = j / 3;
-                boolean shouldHighlight = game.lastRow == -1 || 
-                                          (boardRow == game.lastRow && boardCol == game.lastCol) && 
-                                          !game.ultimateBoard.getBoard(boardRow, boardCol).isFinished();
-                buttons[i][j].setBackground(shouldHighlight ? Color.YELLOW : null);
-                if (shouldHighlight) {
-                    anySquareAvailable = true;
-                }
+                buttons[i][j].setBackground(null);
             }
         }
-        if (!anySquareAvailable) {
-            for (int i = 0; i < 9; i++) {
-                for (int j = 0; j < 9; j++) {
-                    buttons[i][j].setBackground(null);
-                }
+    }
+
+    public void disableAllButtons() {
+        for (int i = 0; i < 9; i++) {
+            for (int j = 0; j < 9; j++) {
+                buttons[i][j].setEnabled(false);
             }
         }
     }
@@ -258,8 +261,7 @@ class UltimateTicTacToeGUI {
     }
 
     public void displayWinner(char winner) {
-        JOptionPane.showMessageDialog(frame, "Player " + winner + " wins!", "Game Over",
-                JOptionPane.INFORMATION_MESSAGE);
+        JOptionPane.showMessageDialog(frame, "Player " + winner + " wins!", "Game Over", JOptionPane.INFORMATION_MESSAGE);
     }
 
     public static void main(String[] args) {

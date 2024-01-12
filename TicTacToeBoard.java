@@ -3,9 +3,9 @@ import java.awt.*;
 
 // Represents a single 3x3 Tic Tac Toe board
 class TicTacToeBoard {
-    private char[][] board;
-    private char winner;
-    private boolean isFinished;
+    protected char[][] board;
+    protected char winner;
+    protected boolean isFinished;
 
     public TicTacToeBoard() {
         board = new char[3][3];
@@ -27,7 +27,7 @@ class TicTacToeBoard {
         return true;
     }
 
-    public void checkWinner(int row, int col, char player) {
+    protected void checkWinner(int row, int col, char player) {
         // Check row, column, and diagonals for a win
         if ((board[row][0] == player && board[row][1] == player && board[row][2] == player) ||
                 (board[0][col] == player && board[1][col] == player && board[2][col] == player) ||
@@ -76,7 +76,7 @@ class UltimateBoard extends TicTacToeBoard {
     }
 
     @Override
-    public void checkWinner(int row, int col, char player) {
+    protected void checkWinner(int row, int col, char player) {
         // Check if the player has won any of the small boards
         if (ultimateBoard[row][col].getWinner() == player) {
             // Check row, column, and diagonals for a win in the ultimate board
@@ -93,7 +93,6 @@ class UltimateBoard extends TicTacToeBoard {
                 winner = player;
                 isFinished = true;
             }
-            
         }
     }
 
@@ -104,10 +103,10 @@ class UltimateBoard extends TicTacToeBoard {
 
 // Manages the game's rules and player turns
 class Game {
-    private UltimateBoard ultimateBoard;
-    private char currentPlayer;
-    private int lastRow, lastCol;
-    private UltimateTicTacToeGUI gui;
+    UltimateBoard ultimateBoard;
+    char currentPlayer;
+    int lastRow, lastCol;
+    UltimateTicTacToeGUI gui;
 
     public Game(UltimateTicTacToeGUI gui) {
         this.gui = gui;
@@ -137,9 +136,6 @@ class Game {
     private boolean isValidMove(int row, int col) {
         if (lastRow != -1 && (row / 3 != lastRow || col / 3 != lastCol)
                 && !ultimateBoard.getBoard(lastRow, lastCol).isFinished()) {
-            JOptionPane.showMessageDialog(null,
-                    "Invalid move. You must play in the board at (" + lastRow + ", " + lastCol + ").", "Invalid Move",
-                    JOptionPane.ERROR_MESSAGE);
             return false;
         }
         return true;
@@ -147,6 +143,7 @@ class Game {
 
     public void switchPlayer() {
         currentPlayer = (currentPlayer == 'X') ? 'O' : 'X';
+        gui.updateStatus(currentPlayer);
     }
 
     public char getCurrentPlayer() {
@@ -159,6 +156,7 @@ class UltimateTicTacToeGUI {
     private JFrame frame;
     private JButton[][] buttons;
     private Game game;
+    private JLabel statusLabel;
 
     public UltimateTicTacToeGUI() {
         game = new Game(this);
@@ -166,43 +164,97 @@ class UltimateTicTacToeGUI {
     }
 
     private void initializeUI() {
-    frame = new JFrame("Ultimate Tic Tac Toe");
-    frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-    frame.setLayout(new GridLayout(3, 3, 5, 5)); // 3x3 grid with some padding
+        frame = new JFrame("Ultimate Tic Tac Toe");
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setLayout(new BorderLayout());
 
-    buttons = new JButton[9][9];
+        JPanel gridPanel = new JPanel(new GridLayout(3, 3, 5, 5)); // 3x3 grid for the game
+        frame.add(gridPanel, BorderLayout.CENTER);
 
-    for (int i = 0; i < 9; i++) {
-        for (int j = 0; j < 9; j++) {
-            JButton button = new JButton();
-            button.setFont(new Font("Arial", Font.BOLD, 20));
-            button.setFocusable(false);
-            int row = i;
-            int col = j;
-            button.addActionListener(e -> buttonClicked(row, col));
-            buttons[i][j] = button;
+        statusLabel = new JLabel("Player X's turn", SwingConstants.CENTER);
+        frame.add(statusLabel, BorderLayout.SOUTH);
 
-            int panelIndex = (i / 3) * 3 + (j / 3);
-            Container panel = frame.getContentPane();
-            if (panelIndex >= panel.getComponentCount()) {
-                JPanel subPanel = new JPanel(new GridLayout(3, 3));
-                panel.add(subPanel);
-            }
-            JPanel subPanel = (JPanel) panel.getComponent(panelIndex);
-            subPanel.add(button);
-        }
+        buttons = new JButton[9][9];
+        createButtons(gridPanel);
+
+        frame.setSize(600, 600);
+        frame.setVisible(true);
     }
 
-    frame.setSize(600, 600);
-    frame.setVisible(true);
-}
+    private void createButtons(JPanel gridPanel) {
+        for (int i = 0; i < 9; i++) {
+            for (int j = 0; j < 9; j++) {
+                JButton button = new JButton();
+                button.setFont(new Font("Arial", Font.BOLD, 20));
+                button.setFocusable(false);
+                int row = i;
+                int col = j;
+                button.addActionListener(e -> buttonClicked(row, col));
+                buttons[i][j] = button;
 
+                int panelIndex = (i / 3) * 3 + (j / 3);
+                if (panelIndex >= gridPanel.getComponentCount()) {
+                    JPanel subPanel = new JPanel(new GridLayout(3, 3));
+                    gridPanel.add(subPanel);
+                }
+                JPanel subPanel = (JPanel) gridPanel.getComponent(panelIndex);
+                subPanel.add(button);
+            }
+        }
+        highlightAvailableSquares();
+    }
 
     private void buttonClicked(int row, int col) {
         if (game.makeMove(row, col)) {
             buttons[row][col].setText(String.valueOf(game.getCurrentPlayer()));
+            updateBoardState();
             game.switchPlayer();
         }
+    }
+
+    private void updateBoardState() {
+        for (int i = 0; i < 9; i++) {
+            for (int j = 0; j < 9; j++) {
+                int boardRow = i / 3;
+                int boardCol = j / 3;
+                if (game.ultimateBoard.getBoard(boardRow, boardCol).isFinished()) {
+                    buttons[i][j].setEnabled(false);
+                    buttons[i][j].setBackground(Color.GRAY);
+                } else {
+                    buttons[i][j].setBackground(null);
+                    buttons[i][j].setEnabled(true);
+                }
+            }
+        }
+        highlightAvailableSquares();
+    }
+
+    private void highlightAvailableSquares() {
+        boolean anySquareAvailable = false;
+        for (int i = 0; i < 9; i++) {
+            for (int j = 0; j < 9; j++) {
+                int boardRow = i / 3;
+                int boardCol = j / 3;
+                boolean shouldHighlight = game.lastRow == -1 || 
+                                          (boardRow == game.lastRow && boardCol == game.lastCol) && 
+                                          !game.ultimateBoard.getBoard(boardRow, boardCol).isFinished();
+                buttons[i][j].setBackground(shouldHighlight ? Color.YELLOW : null);
+                if (shouldHighlight) {
+                    anySquareAvailable = true;
+                }
+            }
+        }
+        if (!anySquareAvailable) {
+            for (int i = 0; i < 9; i++) {
+                for (int j = 0; j < 9; j++) {
+                    buttons[i][j].setBackground(null);
+                }
+            }
+        }
+    }
+
+    public void updateStatus(char currentPlayer) {
+        statusLabel.setText("Player " + currentPlayer + "'s turn");
     }
 
     public void displayWinner(char winner) {

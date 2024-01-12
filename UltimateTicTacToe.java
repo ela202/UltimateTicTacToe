@@ -19,11 +19,18 @@ class GameController {
     private Board board;
     private JLabel statusLabel;
     private char currentPlayer;
+    private SmallBoard activeBoard;
+    private int lastPlayedRow;
+    private int lastPlayedCol;
 
     public GameController() {
         currentPlayer = 'X';
         statusLabel = new JLabel("Player X's turn");
         board = new Board(this);
+        activeBoard = board.getBoards()[1][1];
+        activeBoard.setActive(true);
+        lastPlayedRow = -1;
+        lastPlayedCol = -1;
     }
 
     public Board getBoard() {
@@ -35,18 +42,40 @@ class GameController {
     }
 
     public void cellClicked(Cell cell) {
-        if (cell.isEmpty()) {
-            cell.setSymbol(currentPlayer);
-            if (board.checkWin()) {
-                statusLabel.setText("Player " + currentPlayer + " wins!");
-                board.setEnabled(false);
-            } else if (board.isFull()) {
-                statusLabel.setText("Draw!");
-                board.setEnabled(false);
-            } else {
-                switchPlayer();
+        if (cell.isEmpty() && activeBoard.isEnabled()) {
+            if (lastPlayedRow == -1 || (lastPlayedRow == cell.getRow() && lastPlayedCol == cell.getCol())) {
+                cell.setSymbol(currentPlayer);
+                if (activeBoard.checkWin()) {
+                    statusLabel.setText("Player " + currentPlayer + " wins!");
+                    activeBoard.setEnabled(false);
+                } else if (activeBoard.isFull()) {
+                    statusLabel.setText("Draw!");
+                    activeBoard.setEnabled(false);
+                } else {
+                    switchPlayer();
+                    updateActiveBoard(cell);
+                    highlightNextActiveBoard(); // Highlight the next active small board
+                }
             }
         }
+    }
+
+    private void updateActiveBoard(Cell cell) {
+        lastPlayedRow = cell.getRow();
+        lastPlayedCol = cell.getCol();
+        activeBoard.setActive(false);
+        activeBoard = board.getBoards()[lastPlayedRow][lastPlayedCol];
+        activeBoard.setActive(true);
+    }
+
+    private void highlightNextActiveBoard() {
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                board.getBoards()[i][j].setNextActive(false);
+            }
+        }
+        SmallBoard nextActiveBoard = board.getBoards()[lastPlayedRow][lastPlayedCol];
+        nextActiveBoard.setNextActive(true);
     }
 
     public void switchPlayer() {
@@ -74,15 +103,19 @@ class Board extends JPanel {
         }
     }
 
+    public SmallBoard[][] getBoards() {
+        return boards;
+    }
+
     public boolean checkWin() {
         for (int i = 0; i < 3; i++) {
-            if (checkRowCol(boards[i][0], boards[i][1], boards[i][2]) || // check rows
-                    checkRowCol(boards[0][i], boards[1][i], boards[2][i])) { // check columns
+            if (checkRowCol(boards[i][0], boards[i][1], boards[i][2]) ||
+                    checkRowCol(boards[0][i], boards[1][i], boards[2][i])) {
                 return true;
             }
         }
-        return checkRowCol(boards[0][0], boards[1][1], boards[2][2]) || // check diagonal
-                checkRowCol(boards[0][2], boards[1][1], boards[2][0]); // check reverse diagonal
+        return checkRowCol(boards[0][0], boards[1][1], boards[2][2]) ||
+                checkRowCol(boards[0][2], boards[1][1], boards[2][0]);
     }
 
     private boolean checkRowCol(SmallBoard a, SmallBoard b, SmallBoard c) {
@@ -117,28 +150,32 @@ class SmallBoard extends JPanel {
     private Cell[][] cells = new Cell[3][3];
     private GameController gameController;
     private char winner = ' ';
+    private boolean isActive;
+    private boolean isNextActive; // New variable to track if the small board is the next active small board
 
     public SmallBoard(GameController gameController) {
         this.gameController = gameController;
         setLayout(new GridLayout(3, 3));
         for (int i = 0; i < 3; i++) {
             for (int j = 0; j < 3; j++) {
-                cells[i][j] = new Cell(this, gameController);
+                cells[i][j] = new Cell(this, gameController, i, j);
                 add(cells[i][j]);
             }
         }
+        isActive = false;
+        isNextActive = false;
     }
 
     public boolean checkWin() {
         for (int i = 0; i < 3; i++) {
-            if (checkRowCol(cells[i][0], cells[i][1], cells[i][2]) || // check rows
-                    checkRowCol(cells[0][i], cells[1][i], cells[2][i])) { // check columns
+            if (checkRowCol(cells[i][0], cells[i][1], cells[i][2]) ||
+                    checkRowCol(cells[0][i], cells[1][i], cells[2][i])) {
                 winner = gameController.getCurrentPlayer();
                 return true;
             }
         }
-        if (checkRowCol(cells[0][0], cells[1][1], cells[2][2]) || // check diagonal
-                checkRowCol(cells[0][2], cells[1][1], cells[2][0])) { // check reverse diagonal
+        if (checkRowCol(cells[0][0], cells[1][1], cells[2][2]) ||
+                checkRowCol(cells[0][2], cells[1][1], cells[2][0])) {
             winner = gameController.getCurrentPlayer();
             return true;
         }
@@ -165,7 +202,24 @@ class SmallBoard extends JPanel {
         return winner;
     }
 
-    // Set enabled state of all Cells
+    public void setActive(boolean isActive) {
+        this.isActive = isActive;
+        if (isActive) {
+            setBackground(Color.YELLOW);
+        } else {
+            setBackground(null);
+        }
+    }
+
+    public void setNextActive(boolean isNextActive) {
+        this.isNextActive = isNextActive;
+        if (isNextActive) {
+            setBackground(Color.GREEN); // Highlight the next active small board with a green background
+        } else {
+            setBackground(null);
+        }
+    }
+
     @Override
     public void setEnabled(boolean enabled) {
         super.setEnabled(enabled);
@@ -181,15 +235,19 @@ class Cell extends JButton {
     private char symbol = ' ';
     private SmallBoard smallBoard;
     private GameController gameController;
+    private int row;
+    private int col;
 
-    public Cell(SmallBoard smallBoard, GameController gameController) {
+    public Cell(SmallBoard smallBoard, GameController gameController, int row, int col) {
         this.smallBoard = smallBoard;
         this.gameController = gameController;
+        this.row = row;
+        this.col = col;
         addActionListener(e -> {
             if (isEmpty()) {
-                setSymbol(gameController.getCurrentPlayer()); // Set symbol based on the current player
-                gameController.cellClicked(this); // Delegate to GameController to handle the action
-                gameController.switchPlayer(); // Switch player after every valid move
+                setSymbol(gameController.getCurrentPlayer());
+                gameController.cellClicked(this);
+                gameController.switchPlayer();
             }
         });
     }
@@ -201,15 +259,12 @@ class Cell extends JButton {
     public void setSymbol(char symbol) {
         this.symbol = symbol;
         setText(String.valueOf(symbol));
-        // Check if the small board or the entire board is won or full after setting the
-        // symbol
         checkBoardStates();
     }
 
     private void checkBoardStates() {
         if (smallBoard.checkWin() || smallBoard.isFull()) {
             smallBoard.setEnabled(false);
-            // Check if the entire game is won or if it's a draw
             if (gameController.getBoard().checkWin()) {
                 gameController.getStatusLabel()
                         .setText("Player " + (gameController.getCurrentPlayer() == 'X' ? 'O' : 'X') + " wins!");
@@ -223,5 +278,13 @@ class Cell extends JButton {
 
     public char getSymbol() {
         return symbol;
+    }
+
+    public int getRow() {
+        return row;
+    }
+
+    public int getCol() {
+        return col;
     }
 }
